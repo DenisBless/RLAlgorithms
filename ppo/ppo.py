@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch.nn.utils import clip_grad_norm_
 
 
 class PPO:
@@ -15,6 +16,7 @@ class PPO:
                  gamma,
                  max_grad_norm,
                  device,
+                 optimizer: torch.optim = torch.optim.Adam,
                  eps=0.2):
         self.actor = actor
         self.critic = critic
@@ -28,6 +30,9 @@ class PPO:
         self.gamma = gamma
         self.max_grad_norm = max_grad_norm
         self.device = device
+
+        self.actor_optimizer = optimizer(self.actor.paramters())
+        self.critic_optimizer = optimizer(self.critic.paramters())
 
     def collect_rollouts(self, n_episodes):
         self.rollout_buffer.reset()
@@ -57,6 +62,7 @@ class PPO:
 
         for epoch in range(self.n_epochs):
             for batch_data in self.rollout_buffer.get():
+                # Compute losses
                 actions = batch_data.actions
                 log_prob, entropy = self.actor.calc_logprob_and_ent(actions)  # TODO actor has to implement this fn
                 ratio = torch.exp(log_prob - batch_data.old_log_prob)
@@ -70,3 +76,14 @@ class PPO:
 
                 values = self.critic(obs=batch_data.observations, actions=batch_data.actions)
                 value_loss = F.mse_loss(batch_data.returns, values)
+
+                # Optimization steps
+                self.actor_optimizer.zero_grad()
+                policy_loss.backward()
+                clip_grad_norm_(self.actor.parameters(), max_norm=self.max_grad_norm)
+                self.actor_optimizer.step()
+
+                self.critic_optimizer.zero_grad()
+                value_loss.backward()
+                clip_grad_norm_(self.critic.parameter(), max_norm=self.max_grad_norm)
+                self.critic_optimizer.step()
