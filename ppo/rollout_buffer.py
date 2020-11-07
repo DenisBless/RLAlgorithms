@@ -22,7 +22,7 @@ class RolloutBuffer:
         self.n_obs = n_obs
         self.n_actions = n_actions
         self.batch_size = batch_size
-        self.device=device
+        self.device = device
 
         self.observations, self.actions, self.rewards, self.advantages = None, None, None, None
         self.returns, self.dones, self.values, self.log_probs = None, None, None, None
